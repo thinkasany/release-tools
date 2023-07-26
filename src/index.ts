@@ -3,17 +3,44 @@ const path = require("path");
 const fs = require("fs");
 const dayjs = require("dayjs");
 
-async function connectWithPrivateKey(configuration) {
+interface ConfigProps {
+  host: string;
+  port: number;
+  username: string;
+  privateKeyPath: string;
+  remoteFolderPath: string;
+  localFolder: string;
+  passphrase: null | string;
+}
+function isMissingParameter(obj: any) {
+  for (const key in obj) {
+    if (obj[key] === undefined) {
+      return true;
+    }
+  }
+  return false;
+}
+
+async function uploadTools(configuration: ConfigProps) {
+  if (isMissingParameter(configuration) || (!configuration.host || !configuration.port || !configuration.username || !configuration.privateKeyPath || !configuration.remoteFolderPath || !configuration.localFolder)) {
+    console.log('\x1b[31m%s\x1b[0m', '请检查参数是否有漏或者错误，参考链接 https://github.com/thinkasany/release-tools');
+    return
+  }
   const ssh = new NodeSSH();
   const localFolder = (configuration.localFolder = "dist"); // 默认dist，但是也可以自定义其他文件
+  const remoteTargetPath = configuration.remoteFolderPath + "/" + localFolder;
+  const localFolderPath = path.join(process.cwd(), "dist");
+  // console.log(localFolderPath);
 
   const config = {
-    host: configuration.localFolder,
-    port: (configuration.port = 22),
+    host: configuration.host,
+    port: configuration.port,
     username: (configuration.username = "root"),
     privateKey: fs.readFileSync(configuration.privateKeyPath).toString("utf-8"), // 读取私钥文件
     passphrase: configuration?.passphrase, // 如果私钥有密码，提供密码，否则省略
   };
+
+  // console.log(config);
 
   try {
     // 连接到远程服务器
@@ -34,7 +61,6 @@ async function connectWithPrivateKey(configuration) {
     // 在此可以执行其他操作，例如执行远程命令等
     // 使用 putDirectory 方法上传本地的 dist 文件夹
 
-    const remoteTargetPath = remoteFolderPath + "/" + localFolder;
 
     // 执行移除远程服务器上的 dist 文件
     await ssh.execCommand(`rm -rf ${remoteTargetPath}`);
@@ -44,7 +70,7 @@ async function connectWithPrivateKey(configuration) {
       concurrency: 10,
     });
 
-    console.log(
+    console.log('\x1b[32m%s\x1b[0m',
       `Uploaded local ${localFolder} directory to remote server... (本地目录 ${localFolder} 已上传至服务器) ${dayjs().format(
         "YYYY-MM-DD HH:mm:ss"
       )}`
@@ -52,7 +78,7 @@ async function connectWithPrivateKey(configuration) {
 
     // 关闭SSH连接
     ssh.dispose();
-  } catch (err) {
+  } catch (err: any) {
     console.error("Error:", err.message);
   }
 }
@@ -69,7 +95,5 @@ async function connectWithPrivateKey(configuration) {
   };
   uploadTools(config)
  */
-const uploadTools = connectWithPrivateKey(config);
-
 
 module.exports = uploadTools;
