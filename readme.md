@@ -37,7 +37,9 @@ const config = {
     passphrase: null, // 如果私钥有密码，提供密码，否则省略
 }
 
-uploadTools(config)
+const commands = ['yarn lint:prettier', 'yarn build'];
+
+uploadTools({ commands, config });
 
 ```
 
@@ -50,7 +52,6 @@ $ node ./bin/release.js
 SSH connection established... (SSH 连接已建立) 2023-07-26 16:38:20
 Uploaded local dist directory to remote server... (本地目录 dist 已上传至服务器) 2023-07-26 16:38:22
 ✨  Done in 1.79s.
-
 ```
 
 # 使用指南 🧭

@@ -1,4 +1,5 @@
 const { NodeSSH } = require("node-ssh");
+const child_process = require("child_process");
 const path = require("path");
 const fs = require("fs");
 const dayjs = require("dayjs");
@@ -12,6 +13,9 @@ interface ConfigProps {
   localFolder: string;
   passphrase: null | string;
 }
+
+type CommandsType = string[] | string;
+
 function isMissingParameter(obj: any) {
   for (const key in obj) {
     if (obj[key] === undefined) {
@@ -21,7 +25,21 @@ function isMissingParameter(obj: any) {
   return false;
 }
 
-async function uploadTools(configuration: ConfigProps) {
+
+function execCommand(commands: CommandsType) {
+  (Array.isArray(commands) ? commands : [commands]).forEach((c) => {
+    try {
+      console.log(`start: ${c}...`);
+      console.log(child_process.execSync(c).toString("utf8"));
+    } catch (error: any) {
+      console.log("\x1B[31m%s\x1B[0m", error.stdout.toString());
+      process.exit(1);
+    }
+  });
+}
+
+
+async function uploadToServer(configuration: ConfigProps) {
   if (isMissingParameter(configuration) || (!configuration.host || !configuration.port || !configuration.username || !configuration.privateKeyPath || !configuration.remoteFolderPath || !configuration.localFolder)) {
     console.log('\x1b[31m%s\x1b[0m', '请检查参数是否有漏或者错误，参考链接 https://github.com/thinkasany/release-tools');
     return
@@ -95,5 +113,14 @@ async function uploadTools(configuration: ConfigProps) {
   };
   uploadTools(config)
  */
-
+  async function uploadTools({
+    commands,
+    config
+  }: {
+    commands: CommandsType;
+    config: ConfigProps;
+  }) {
+    execCommand(commands);
+    await uploadToServer(config);
+  }
 module.exports = uploadTools;
