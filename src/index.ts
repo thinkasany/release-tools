@@ -3,6 +3,7 @@ const child_process = require("child_process");
 const path = require("path");
 const fs = require("fs");
 const dayjs = require("dayjs");
+const inquirer = require('inquirer');
 
 interface ConfigProps {
   host: string;
@@ -39,7 +40,36 @@ function execCommand(commands: CommandsType) {
 }
 
 
-async function uploadToServer(configuration: ConfigProps) {
+async function uploadToServer(configuration: ConfigProps, choices?: string[]) {
+  let privateKeyPathChoice = null; // 如果配置了就选择终端输入的，没有的话就选择config中的默认配置
+
+  // console.log('start --', choices);
+  if (choices?.length) {
+    await inquirer
+      .prompt([
+        {
+          type: 'list',
+          name: 'selectedOption',
+          message: '请选择一个密钥地址:',
+          choices: choices,
+        },
+      ])
+      .then((answers: { selectedOption: any; }) => {
+        // 获取用户选择的选项，并将结果赋值给 res 变量
+        privateKeyPathChoice = answers.selectedOption;
+        console.log('你选择的密钥地址是:', privateKeyPathChoice);
+        uploadFunc(configuration, privateKeyPathChoice)
+      })
+      .catch((error: any) => {
+        console.error('选择过程出现错误:', error);
+      });
+    return;
+  }
+
+  uploadFunc(configuration);
+}
+
+const uploadFunc = async (configuration: ConfigProps, privateKeyPathChoice?: string) => {
   if (isMissingParameter(configuration) || (!configuration.host || !configuration.port || !configuration.username || !configuration.privateKeyPath || !configuration.remoteFolderPath || !configuration.localFolder)) {
     console.log('\x1b[31m%s\x1b[0m', '请检查参数是否有漏或者错误，参考链接 https://github.com/thinkasany/release-tools');
     return
@@ -54,7 +84,7 @@ async function uploadToServer(configuration: ConfigProps) {
     host: configuration.host,
     port: configuration.port,
     username: (configuration.username = "root"),
-    privateKey: fs.readFileSync(configuration.privateKeyPath).toString("utf-8"), // 读取私钥文件
+    privateKey: fs.readFileSync(privateKeyPathChoice ?? configuration.privateKeyPath).toString("utf-8"), // 读取私钥文件
     passphrase: configuration?.passphrase, // 如果私钥有密码，提供密码，否则省略
   };
 
@@ -101,7 +131,14 @@ async function uploadToServer(configuration: ConfigProps) {
   }
 }
 
+
 /**
+
+ * @param {CommandsType} commands - 上传前需要执行的命令，比如 ['npm run build'] 之类的...
+ * @param {ConfigProps} config - 服务器配置
+ * @param {ConfigProps} choices - 可选，如果用户比较多的话，可以通过数组来存放，通过终端交互选择校验的密钥地址
+ * 
+ * 
   const config = {
     host: "10.0.0.1", // 服务器IP
     port: 22, // 默认 22
@@ -113,14 +150,16 @@ async function uploadToServer(configuration: ConfigProps) {
   };
   uploadTools(config)
  */
-  async function uploadTools({
-    commands,
-    config
-  }: {
-    commands: CommandsType;
-    config: ConfigProps;
-  }) {
-    execCommand(commands);
-    await uploadToServer(config);
-  }
+async function uploadTools({
+  commands,
+  config,
+  choices
+}: {
+  commands: CommandsType;
+  config: ConfigProps;
+  choices?: string[]
+}) {
+  execCommand(commands);
+  await uploadToServer(config, choices);
+}
 module.exports = uploadTools;
