@@ -1,6 +1,6 @@
 {
   "name": "think-release-tools",
-  "version": "1.0.5",
+  "version": "1.0.6",
   "description": "",
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
@@ -11,7 +11,12 @@
   },
   "author": "",
   "license": "ISC",
-  "files": ["dist", "LICENSE", "README.md", "package.json"],
+  "files": [
+    "dist",
+    "LICENSE",
+    "README.md",
+    "package.json"
+  ],
   "dependencies": {
     "dayjs": "^1.11.9",
     "node-ssh": "^13.1.0",
