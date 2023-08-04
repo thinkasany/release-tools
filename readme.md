@@ -1,3 +1,26 @@
+# release: yupoo-release
+
+因dev环境不同，这个版本是输入密码的，主分支是根据密钥的
+```
+const uploadTools = require('think-yupoo-release');
+
+const config = {
+    host: '127.0.0.1', # ip 地址
+    username: 'root', # 用户名
+    password: '', # 服务器密码
+    port: '22',
+    remotePath: '/www/wwwroot/xxlb.site'  # 目标地址
+  };
+
+const commands = ['yarn lint:prettier', 'yarn build'];
+
+uploadTools({ commands, config });
+
+```
+
+
+
+
 # 介绍
 
 做一个自动上传服务器的脚本工具, 通过解析本地密钥来实现 🔧

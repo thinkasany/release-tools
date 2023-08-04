@@ -1,30 +1,19 @@
-const { NodeSSH } = require("node-ssh");
 const child_process = require("child_process");
+const { NodeSSH } = require("node-ssh");
 const path = require("path");
 const fs = require("fs");
 const dayjs = require("dayjs");
 
-interface ConfigProps {
+
+type Config = {
   host: string;
-  port: number;
   username: string;
-  privateKeyPath: string;
-  remoteFolderPath: string;
-  localFolder: string;
-  passphrase: null | string;
-}
-
+  password: string;
+  port: number;
+  remotePath: string;
+  localFolder?: string;
+};
 type CommandsType = string[] | string;
-
-function isMissingParameter(obj: any) {
-  for (const key in obj) {
-    if (obj[key] === undefined) {
-      return true;
-    }
-  }
-  return false;
-}
-
 
 function execCommand(commands: CommandsType) {
   (Array.isArray(commands) ? commands : [commands]).forEach((c) => {
@@ -39,46 +28,36 @@ function execCommand(commands: CommandsType) {
 }
 
 
-async function uploadToServer(configuration: ConfigProps) {
-  if (isMissingParameter(configuration) || (!configuration.host || !configuration.port || !configuration.username || !configuration.privateKeyPath || !configuration.remoteFolderPath || !configuration.localFolder)) {
-    console.log('\x1b[31m%s\x1b[0m', '请检查参数是否有漏或者错误，参考链接 https://github.com/thinkasany/release-tools');
-    return
-  }
-  const ssh = new NodeSSH();
-  const localFolder = (configuration.localFolder = "dist"); // 默认dist，但是也可以自定义其他文件
-  const remoteTargetPath = configuration.remoteFolderPath + "/" + localFolder;
+async function uploadToServer(config: Config) {
+  const server = {
+    host: config.host,
+    username: config.username,
+    password: config.password,
+    port: config.port
+  };
+  const localFolder = (config.localFolder = "dist"); // 默认dist，但是也可以自定义其他文件
+  const remoteTargetPath = config.remotePath + "/" + localFolder;
   const localFolderPath = path.join(process.cwd(), "dist");
   // console.log(localFolderPath);
 
-  const config = {
-    host: configuration.host,
-    port: configuration.port,
-    username: (configuration.username = "root"),
-    privateKey: fs.readFileSync(configuration.privateKeyPath).toString("utf-8"), // 读取私钥文件
-    passphrase: configuration?.passphrase, // 如果私钥有密码，提供密码，否则省略
-  };
+  const remotePath = config.remotePath;
 
-  // console.log(config);
+  // 本地dist文件夹路径
+  const localPath = path.join(process.cwd(), "dist");
+  console.log(localPath);
+  if (!fs.existsSync(localPath)) {
+    console.error(`本地目录 ${localPath} 不存在，请在根目录执行`);
+    process.exit(1);
+  }
 
+  const ssh = new NodeSSH();
   try {
-    // 连接到远程服务器
-    await ssh.connect({
-      host: config.host,
-      port: config.port, // 远程服务器的端口 默认为 22
-      username: config.username, // SSH 登录的用户名
-      privateKey: config.privateKey, // 本地私钥文件路径
-      passphrase: config.passphrase, // 如果私钥有密码保护，请提供密码，否则省略
-    });
+    await ssh.connect(server);
+    console.log("连接服务器成功, 当前时间：", `${dayjs().format("YYYY-MM-DD HH:mm:ss")}`);
 
-    console.log(
-      `SSH connection established... (SSH 连接已建立) ${dayjs().format(
-        "YYYY-MM-DD HH:mm:ss"
-      )}`
-    );
-
-    // 在此可以执行其他操作，例如执行远程命令等
-    // 使用 putDirectory 方法上传本地的 dist 文件夹
-
+       // 执行远程命令
+    const { stdout } = await ssh.execCommand(`cd ${remotePath} && pwd`);
+    console.log('当前工作目录:', stdout); // 输出当前工作目录
 
     // 执行移除远程服务器上的 dist 文件
     await ssh.execCommand(`rm -rf ${remoteTargetPath}`);
@@ -86,41 +65,32 @@ async function uploadToServer(configuration: ConfigProps) {
     await ssh.putDirectory(localFolderPath, remoteTargetPath, {
       recursive: true,
       concurrency: 10,
+      validate: (itemPath: string) => {
+        const baseName = path.basename(itemPath);
+        return (
+          baseName.substr(0, 1) !== "." &&
+          baseName !== "node_modules" &&
+          baseName !== ".git"
+        );
+      }
     });
-
-    console.log('\x1b[32m%s\x1b[0m',
-      `Uploaded local ${localFolder} directory to remote server... (本地目录 ${localFolder} 已上传至服务器) ${dayjs().format(
-        "YYYY-MM-DD HH:mm:ss"
-      )}`
-    );
-
-    // 关闭SSH连接
-    ssh.dispose();
+    console.log("上传完成，当前时间：", `${dayjs().format("YYYY-MM-DD HH:mm:ss")}`);
   } catch (err: any) {
-    console.error("Error:", err.message);
+    console.error(`连接服务器失败：${err.message}`);
+  } finally {
+    ssh.dispose();
   }
 }
 
-/**
-  const config = {
-    host: "10.0.0.1", // 服务器IP
-    port: 22, // 默认 22
-    username: "root", // 默认 root
-    privateKeyPath: "/Users/thinkerwing/.ssh/id_rsa", // 本地私钥文件路径
-    remoteFolderPath: "../usr/yupoo/app/thinkasany", // 远程目录地址
-    localFolder: "dist", // 默认dist，但是也可以自定义其他文件
-    passphrase: null, // 如果私钥有密码，提供密码，否则省略
-  };
-  uploadTools(config)
- */
-  async function uploadTools({
-    commands,
-    config
-  }: {
-    commands: CommandsType;
-    config: ConfigProps;
-  }) {
-    execCommand(commands);
-    await uploadToServer(config);
-  }
+async function uploadTools({
+  commands,
+  config
+}: {
+  commands: CommandsType;
+  config: Config;
+}) {
+  execCommand(commands);
+  await uploadToServer(config);
+}
+
 module.exports = uploadTools;
